@@ -176,7 +176,21 @@ class HttpFetcher:
             raise InvalidUrlError(url, "unsupported URL scheme") from exc
         except httpx.InvalidURL as exc:
             raise InvalidUrlError(url, "malformed URL") from exc
-        except httpx.TransportError as exc:
+        except httpx.RemoteProtocolError as exc:
+            # httpx parses a redirect's Location header even when it is told not
+            # to follow redirects, so a malformed one is rejected in here before
+            # we ever see the response. That is a permanent fault in the
+            # server's answer, not a transient network problem, so it must not
+            # be retried. The message check couples us to httpx's wording;
+            # `test_httpx_rejecting_a_location_header_is_not_retried` fails
+            # loudly if that wording ever changes.
+            if "location header" in str(exc).lower():
+                raise InvalidRedirectError(url, "<unreadable Location header>", str(exc)) from exc
+            raise TransportFailureError(url, f"{type(exc).__name__}: {exc}") from exc
+        except httpx.RequestError as exc:
+            # RequestError rather than TransportError: it also covers failures
+            # such as DecodingError, which happen after the bytes arrive but
+            # still mean we did not get a usable response.
             raise TransportFailureError(url, f"{type(exc).__name__}: {exc}") from exc
 
     def _request_with_retries(self, url: str, *, interval: float) -> httpx.Response:
@@ -201,7 +215,11 @@ class HttpFetcher:
                 last_error = exc
             else:
                 status = response.status_code
-                if status < 400:
+                # Only successes and the redirects we know how to follow are
+                # handed back. A 300 or 304 is not something this fetcher can
+                # act on, so it is reported rather than silently returned as if
+                # it carried the page we asked for.
+                if 200 <= status < 300 or status in REDIRECT_STATUS:
                     return response
                 if not is_retryable_status(status):
                     raise HttpStatusError(url, status)
@@ -242,8 +260,12 @@ class HttpFetcher:
     def _checked_entry_url(self, url: str) -> str:
         try:
             parts = urlsplit(url)
+            # urlsplit accepts a bad port and only complains when .port is
+            # read, so force that here rather than letting a raw ValueError
+            # surface from somewhere deeper.
+            _ = parts.port
         except ValueError as exc:
-            raise InvalidUrlError(url, "URL could not be parsed") from exc
+            raise InvalidUrlError(url, f"URL could not be parsed: {exc}") from exc
 
         if parts.scheme.lower() not in SUPPORTED_SCHEMES:
             raise InvalidUrlError(url, f"unsupported URL scheme {parts.scheme!r}")
@@ -266,8 +288,13 @@ class HttpFetcher:
         try:
             target = urljoin(current, raw)
             parts = urlsplit(target)
+            _ = parts.port  # an invalid port only surfaces when it is read
         except ValueError as exc:
-            raise InvalidRedirectError(current, raw, "the URL could not be parsed") from exc
+            raise InvalidRedirectError(
+                current,
+                raw,
+                f"the URL could not be parsed: {exc}",
+            ) from exc
 
         scheme = parts.scheme.lower()
         if scheme not in SUPPORTED_SCHEMES:
@@ -334,6 +361,10 @@ class HttpFetcher:
                 response = self._send(url)
             except InvalidUrlError as exc:
                 raise RobotsUnavailableError(url, "robots.txt URL is not usable") from exc
+            except RedirectError as exc:
+                # Keeps the promise that reading robots.txt only ever fails as
+                # a RobotsError, whatever the underlying reason was.
+                raise RobotsUnavailableError(url, "robots.txt redirect was refused") from exc
             except TransportFailureError as exc:
                 if budget <= 0:
                     raise RobotsUnavailableError(url, "robots.txt could not be reached") from exc

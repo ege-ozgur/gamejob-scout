@@ -225,6 +225,77 @@ def test_running_out_of_attempts_reports_a_transport_failure(
     assert isinstance(caught.value.__cause__, TransportFailureError)
 
 
+def test_a_failure_after_the_bytes_arrive_is_still_a_transport_failure(
+    router: respx.MockRouter,
+    fetcher: HttpFetcher,
+) -> None:
+    """A DecodingError is a RequestError but not a TransportError.
+
+    It happens once the response body is in hand and the declared encoding
+    turns out to be wrong, which still means we did not get a usable page.
+    """
+    allow_all(router)
+    router.get(TARGET_URL).mock(side_effect=httpx.DecodingError("bad gzip"))
+
+    with pytest.raises(RetryExhaustedError) as caught:
+        fetcher.get(TARGET_URL)
+
+    cause = caught.value.__cause__
+    assert isinstance(cause, TransportFailureError)
+    assert "DecodingError" in str(cause)
+    assert caught.value.attempts == 3
+    assert len(router.calls) == 4
+
+
+# -- status classification -------------------------------------------------
+
+
+@pytest.mark.parametrize("status", [101, 300, 304, 305, 306, 399])
+def test_a_status_we_cannot_act_on_is_reported_not_returned(
+    router: respx.MockRouter,
+    fetcher: HttpFetcher,
+    status: int,
+) -> None:
+    """Anything below 400 that is not a 2xx or a followable redirect.
+
+    Returning one of these as if it were the page would hand a collector an
+    empty body and no indication that anything was wrong.
+    """
+    allow_all(router)
+    target = router.get(TARGET_URL).respond(status)
+
+    with pytest.raises(HttpStatusError) as caught:
+        fetcher.get(TARGET_URL)
+
+    assert caught.value.status_code == status
+    assert target.call_count == 1
+
+
+@pytest.mark.parametrize("status", [200, 201, 204, 299])
+def test_every_success_status_is_returned(
+    router: respx.MockRouter,
+    fetcher: HttpFetcher,
+    status: int,
+) -> None:
+    allow_all(router)
+    router.get(TARGET_URL).respond(status)
+
+    assert fetcher.get(TARGET_URL).status_code == status
+
+
+@pytest.mark.parametrize("status", [301, 302, 303, 307, 308])
+def test_every_followable_redirect_is_followed(
+    router: respx.MockRouter,
+    fetcher: HttpFetcher,
+    status: int,
+) -> None:
+    allow_all(router)
+    router.get(TARGET_URL).respond(status, headers={"Location": "/openings"})
+    router.get("https://example.com/openings").respond(200, text="ok")
+
+    assert fetcher.get(TARGET_URL).url == "https://example.com/openings"
+
+
 # -- rate limiting ---------------------------------------------------------
 
 
@@ -381,6 +452,70 @@ def test_an_unusable_url_is_rejected_before_anything_is_requested(
 
     assert len(router.calls) == 0
     assert clock.sleeps == []
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "https://example.com:notaport/jobs",
+        "https://example.com:99999/jobs",
+        "https://example.com:-1/jobs",
+    ],
+)
+def test_a_bad_port_is_caught_rather_than_escaping_as_a_value_error(
+    router: respx.MockRouter,
+    fetcher: HttpFetcher,
+    url: str,
+) -> None:
+    """urlsplit tolerates a bad port until .port is read, so we read it."""
+    with pytest.raises(InvalidUrlError, match="could not be parsed"):
+        fetcher.get(url)
+
+    assert len(router.calls) == 0
+
+
+@pytest.mark.parametrize(
+    "location",
+    [
+        "https://example.com:notaport/jobs",
+        "https://example.com:99999/jobs",
+    ],
+)
+def test_a_bad_port_in_a_redirect_is_caught_too(
+    router: respx.MockRouter,
+    fetcher: HttpFetcher,
+    location: str,
+) -> None:
+    allow_all(router)
+    router.get(TARGET_URL).respond(302, headers={"Location": location})
+
+    with pytest.raises(InvalidRedirectError):
+        fetcher.get(TARGET_URL)
+
+
+def test_httpx_rejecting_a_location_header_is_not_retried(
+    router: respx.MockRouter,
+    fetcher: HttpFetcher,
+    clock: FakeClock,
+) -> None:
+    """Pins a deliberate coupling to httpx's own Location validation.
+
+    httpx parses the Location header even with follow_redirects disabled, and
+    reports a non-numeric port as a RemoteProtocolError, which would otherwise
+    look retryable. If httpx ever rewords that error, this test fails rather
+    than the fetcher quietly going back to retrying a permanent fault.
+    """
+    allow_all(router)
+    target = router.get(TARGET_URL).respond(
+        302,
+        headers={"Location": "https://example.com:notaport/jobs"},
+    )
+
+    with pytest.raises(InvalidRedirectError):
+        fetcher.get(TARGET_URL)
+
+    assert target.call_count == 1
+    assert clock.sleeps == [1.0]
 
 
 def test_using_a_closed_fetcher_raises_our_own_error(clock: FakeClock) -> None:
