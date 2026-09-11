@@ -1,0 +1,75 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "gamejob-scout"
+description = "Human-in-the-loop job discovery for game studios and technology companies."
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.12"
+dynamic = ["version"]
+keywords = ["jobs", "games", "ats", "greenhouse", "lever", "job-search"]
+classifiers = [
+    "Development Status :: 2 - Pre-Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Typing :: Typed",
+]
+
+# Phase 1 runtime stack only. Later phases (LLM matching, discovery agent, dashboard)
+# add their own dependencies when the code that needs them is actually written.
+dependencies = [
+    "pydantic>=2.7",
+    "pydantic-settings>=2.2",
+    "httpx>=0.27",
+    "beautifulsoup4>=4.12",
+    "sqlalchemy>=2.0",
+    "typer>=0.12",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.6",
+    "mypy>=1.11",
+]
+
+# A `gamejob-scout` console script is added in milestone 1.9, when the Typer CLI exists.
+# Declaring it earlier would ship a command that immediately fails on import.
+
+[tool.hatch.version]
+path = "src/gamejob_scout/__init__.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/gamejob_scout"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # pyflakes
+    "I",    # import sorting
+    "UP",   # pyupgrade
+    "B",    # bugbear
+    "C4",   # comprehensions
+    "SIM",  # simplify
+    "RUF",  # ruff-specific rules
+]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+warn_unreachable = true
+files = ["src", "tests"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q --strict-markers --strict-config"
