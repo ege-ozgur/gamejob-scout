@@ -1,0 +1,80 @@
+{
+  "headline": "Fictional example profile. Replace with your own; do not commit real personal data.",
+  "target_roles": [
+    "Gameplay Programmer",
+    "Junior Software Engineer",
+    "Associate Product Manager"
+  ],
+  "excluded_roles": [
+    "Sales Representative",
+    "QA Tester"
+  ],
+  "experience_level": "entry",
+  "years_of_experience": 0.5,
+  "preferred_locations": [
+    "Istanbul, Turkey",
+    "Ankara, Turkey"
+  ],
+  "acceptable_workplace_types": [
+    "hybrid",
+    "on_site",
+    "remote"
+  ],
+  "prefers_remote": true,
+  "authorized_to_work_in": [
+    "Turkey"
+  ],
+  "willing_to_relocate": false,
+  "skills": [
+    "Gameplay systems",
+    "Debugging",
+    "Technical writing",
+    "Agile delivery"
+  ],
+  "programming_languages": [
+    "C++",
+    "Python",
+    "C#"
+  ],
+  "game_engines": [
+    "Unreal Engine",
+    "Unity"
+  ],
+  "industries": [
+    "Games",
+    "Software"
+  ],
+  "education": [
+    {
+      "degree": "MSc",
+      "field_of_study": "Games Engineering",
+      "institution": "Example University",
+      "graduation_year": 2026
+    },
+    {
+      "degree": "BSc",
+      "field_of_study": "Computer Science",
+      "institution": "Example University",
+      "graduation_year": 2024
+    }
+  ],
+  "projects": [
+    {
+      "name": "Third-person prototype",
+      "summary": "Fictional example project: a small third-person movement and camera prototype.",
+      "technologies": [
+        "Unreal Engine",
+        "C++"
+      ],
+      "url": "https://example.com/projects/third-person-prototype"
+    },
+    {
+      "name": "Build pipeline tooling",
+      "summary": "Fictional example project: scripts that automate packaging and test runs.",
+      "technologies": [
+        "Python"
+      ],
+      "url": null
+    }
+  ]
+}

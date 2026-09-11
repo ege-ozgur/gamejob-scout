@@ -69,6 +69,9 @@ python_version = "3.12"
 strict = true
 warn_unreachable = true
 files = ["src", "tests"]
+# Without this, strict mode reports false positives on Pydantic validators and
+# model constructors.
+plugins = ["pydantic.mypy"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
