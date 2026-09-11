@@ -35,6 +35,7 @@ dev = [
     "pytest>=8.0",
     "ruff>=0.6",
     "mypy>=1.11",
+    "respx>=0.22",
 ]
 
 # A `gamejob-scout` console script is added in milestone 1.9, when the Typer CLI exists.
