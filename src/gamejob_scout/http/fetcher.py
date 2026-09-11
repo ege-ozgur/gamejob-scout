@@ -113,6 +113,7 @@ class HttpFetcher:
             follow_redirects=False,
             headers={"User-Agent": config.user_agent},
             transport=transport,
+            event_hooks={"response": [self._reject_unusable_redirect]},
         )
 
     # -- lifecycle ---------------------------------------------------------
@@ -164,6 +165,20 @@ class HttpFetcher:
 
     # -- requesting --------------------------------------------------------
 
+    def _reject_unusable_redirect(self, response: httpx.Response) -> None:
+        """Check a redirect before httpx reads the Location header itself.
+
+        httpx builds its own redirect request even when told not to follow
+        redirects, and a malformed Location makes it raise a protocol error that
+        looks retryable. Response hooks run first, so validating here means an
+        unusable redirect is reported as the permanent redirect fault it is.
+
+        This only validates. A redirect that passes is resolved again later when
+        it is actually followed, which costs nothing worth avoiding.
+        """
+        if response.status_code in REDIRECT_STATUS:
+            self._redirect_target(str(response.request.url), response)
+
     def _send(self, url: str) -> httpx.Response:
         """Issue one request, translating httpx failures into our own types.
 
@@ -176,17 +191,6 @@ class HttpFetcher:
             raise InvalidUrlError(url, "unsupported URL scheme") from exc
         except httpx.InvalidURL as exc:
             raise InvalidUrlError(url, "malformed URL") from exc
-        except httpx.RemoteProtocolError as exc:
-            # httpx parses a redirect's Location header even when it is told not
-            # to follow redirects, so a malformed one is rejected in here before
-            # we ever see the response. That is a permanent fault in the
-            # server's answer, not a transient network problem, so it must not
-            # be retried. The message check couples us to httpx's wording;
-            # `test_httpx_rejecting_a_location_header_is_not_retried` fails
-            # loudly if that wording ever changes.
-            if "location header" in str(exc).lower():
-                raise InvalidRedirectError(url, "<unreadable Location header>", str(exc)) from exc
-            raise TransportFailureError(url, f"{type(exc).__name__}: {exc}") from exc
         except httpx.RequestError as exc:
             # RequestError rather than TransportError: it also covers failures
             # such as DecodingError, which happen after the bytes arrive but

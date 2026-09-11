@@ -247,6 +247,28 @@ def test_a_failure_after_the_bytes_arrive_is_still_a_transport_failure(
     assert len(router.calls) == 4
 
 
+def test_a_genuine_protocol_error_is_still_retryable(
+    router: respx.MockRouter,
+    fetcher: HttpFetcher,
+) -> None:
+    """A malformed reply from the server is transient as far as we can tell.
+
+    Only redirects with an unusable Location are treated as permanent, and that
+    is decided by our own validation rather than by reading httpx's wording.
+    """
+    allow_all(router)
+    router.get(TARGET_URL).mock(side_effect=httpx.RemoteProtocolError("truncated response"))
+
+    with pytest.raises(RetryExhaustedError) as caught:
+        fetcher.get(TARGET_URL)
+
+    cause = caught.value.__cause__
+    assert isinstance(cause, TransportFailureError)
+    assert "RemoteProtocolError" in str(cause)
+    assert caught.value.attempts == 3
+    assert len(router.calls) == 4
+
+
 # -- status classification -------------------------------------------------
 
 
@@ -493,18 +515,12 @@ def test_a_bad_port_in_a_redirect_is_caught_too(
         fetcher.get(TARGET_URL)
 
 
-def test_httpx_rejecting_a_location_header_is_not_retried(
+def test_an_unusable_redirect_is_rejected_without_retrying(
     router: respx.MockRouter,
     fetcher: HttpFetcher,
     clock: FakeClock,
 ) -> None:
-    """Pins a deliberate coupling to httpx's own Location validation.
-
-    httpx parses the Location header even with follow_redirects disabled, and
-    reports a non-numeric port as a RemoteProtocolError, which would otherwise
-    look retryable. If httpx ever rewords that error, this test fails rather
-    than the fetcher quietly going back to retrying a permanent fault.
-    """
+    """A broken Location is a permanent fault in the answer, not a blip."""
     allow_all(router)
     target = router.get(TARGET_URL).respond(
         302,
