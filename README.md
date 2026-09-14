@@ -110,9 +110,9 @@ Supported ATS integrations and per-company status will be listed here as they ar
 Nothing is listed until its careers URL and ATS have been confirmed against the company's own
 public pages — no guessed URLs, no assumed ATS.
 
-| Company | Careers source | ATS | Status |
-| --- | --- | --- | --- |
-| Good Job Games | [Greenhouse job board](https://job-boards.greenhouse.io/goodjobgames) | Greenhouse | Verified — readable by the Greenhouse collector |
+| Company | Careers source | ATS | Status | Verified |
+| --- | --- | --- | --- | --- |
+| Good Job Games | [Greenhouse job board](https://job-boards.greenhouse.io/goodjobgames) | Greenhouse | Readable by the Greenhouse collector | 2026-09-14 |
 
 Greenhouse is the first supported ATS. A board is read through its public Job Board API,
 which needs no authentication, returns a whole board in one response, and whose

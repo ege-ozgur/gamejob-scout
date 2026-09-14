@@ -28,7 +28,6 @@ import html
 import json
 from datetime import datetime
 from typing import Any, Final
-from urllib.parse import quote
 
 from pydantic import TypeAdapter, ValidationError
 
@@ -49,26 +48,6 @@ _SLUG = TypeAdapter(Slug)
 """Validates against the domain's own Slug rule rather than repeating its regex."""
 
 
-def board_jobs_url(board_token: str) -> str:
-    """The single endpoint a board is read from.
-
-    ``content=true`` is what makes descriptions available, and is the reason one
-    request is enough for a whole board.
-    """
-    safe_token = quote(board_token, safe="")
-    return f"{GREENHOUSE_API_BASE}/{safe_token}/jobs?content=true"
-
-
-def make_source_key(company: Company) -> str:
-    """Derive a board's stable key.
-
-    The board token is part of the key, not just the company and the ATS, so a
-    company that later runs a second Greenhouse board gets a second distinct
-    source rather than silently colliding with the first.
-    """
-    return f"{company.key}-greenhouse-{company.ats_identifier}"
-
-
 def _checked_slug(value: str, description: str) -> str:
     """Validate a configured identifier against the domain's Slug rule.
 
@@ -80,6 +59,54 @@ def _checked_slug(value: str, description: str) -> str:
         return _SLUG.validate_python(value)
     except ValidationError as exc:
         raise ValueError(f"{description} is not a valid slug: {value!r}") from exc
+
+
+def _greenhouse_board_token(company: Company) -> str:
+    """Confirm a company really is a Greenhouse board, and hand back its token.
+
+    One place decides what a usable Greenhouse company looks like, so the
+    exported helpers and the collector cannot drift apart on it.
+    """
+    if company.ats is not ATSKind.GREENHOUSE:
+        raise ValueError(
+            f"{company.key!r} is configured as {company.ats.value!r}, not 'greenhouse'",
+        )
+    if company.ats_identifier is None:
+        raise ValueError(f"{company.key!r} has no ats_identifier to use as a board token")
+    return _checked_slug(company.ats_identifier, f"board token for {company.key!r}")
+
+
+def board_jobs_url(board_token: str) -> str:
+    """The single endpoint a board is read from.
+
+    ``content=true`` is what makes descriptions available, and is the reason one
+    request is enough for a whole board.
+
+    The token is validated rather than escaped. A slug cannot contain a slash, a
+    space, or anything else that would need encoding, so passing that check is
+    what makes the interpolation below safe. An invalid token is a configuration
+    mistake worth refusing outright rather than quietly mangling into a URL.
+    """
+    token = _checked_slug(board_token, "board token")
+    return f"{GREENHOUSE_API_BASE}/{token}/jobs?content=true"
+
+
+def make_source_key(company: Company) -> str:
+    """Derive a board's stable key.
+
+    The board token is part of the key, not just the company and the ATS, so a
+    company that later runs a second Greenhouse board gets a second distinct
+    source rather than silently colliding with the first.
+
+    This is exported alongside the collector, so it enforces exactly what the
+    constructor does. A caller reaching for it directly does not get a laxer
+    path into the same identifiers.
+    """
+    token = _greenhouse_board_token(company)
+    return _checked_slug(
+        f"{company.key}-greenhouse-{token}",
+        f"source key for {company.key!r}",
+    )
 
 
 class _SkipPosting(Exception):
@@ -185,20 +212,13 @@ class GreenhouseCollector:
         *,
         source_key: str | None = None,
     ) -> None:
-        if company.ats is not ATSKind.GREENHOUSE:
-            raise ValueError(
-                f"{company.key!r} is configured as {company.ats.value!r}, not 'greenhouse'",
-            )
-        if company.ats_identifier is None:
-            raise ValueError(f"{company.key!r} has no ats_identifier to use as a board token")
-
-        self._board_token = _checked_slug(
-            company.ats_identifier,
-            f"board token for {company.key!r}",
-        )
-        self._source_key = _checked_slug(
-            make_source_key(company) if source_key is None else source_key,
-            f"source key for {company.key!r}",
+        # Both of these are the exported helpers, so construction and direct
+        # use of the public API cannot disagree about what is acceptable.
+        self._board_token = _greenhouse_board_token(company)
+        self._source_key = (
+            make_source_key(company)
+            if source_key is None
+            else _checked_slug(source_key, f"source key for {company.key!r}")
         )
         self._fetcher = fetcher
         self._company = company

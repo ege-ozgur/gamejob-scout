@@ -116,6 +116,87 @@ def test_the_source_key_includes_the_board() -> None:
     )
 
 
+NOT_A_SLUG = [
+    "",
+    "   ",
+    "Example",
+    "EXAMPLE",
+    "example studio",
+    "example_studio",
+    "ex--ample",
+    "-example",
+    "example-",
+    "exam.ple",
+    "ex/ample",
+    "../../etc",
+]
+
+
+@pytest.mark.parametrize("token", NOT_A_SLUG)
+def test_the_board_url_refuses_a_token_that_is_not_a_slug(token: str) -> None:
+    """The helper is exported, so it cannot be laxer than the constructor.
+
+    The path-shaped entries matter most: refusing them is what keeps a bad token
+    from being interpolated into somebody else's URL.
+    """
+    with pytest.raises(ValueError, match="board token"):
+        board_jobs_url(token)
+
+
+def test_the_source_key_helper_refuses_another_ats() -> None:
+    with pytest.raises(ValueError, match="not 'greenhouse'"):
+        make_source_key(make_company(ats=ATSKind.LEVER, ats_identifier="examplestudio"))
+
+
+def test_the_source_key_helper_refuses_a_missing_board_token() -> None:
+    """Company forbids this, so the guard is checked past that validator."""
+    company = Company.model_construct(
+        key="example-studio",
+        name="Example Studio",
+        ats=ATSKind.GREENHOUSE,
+        ats_identifier=None,
+    )
+
+    with pytest.raises(ValueError, match="no ats_identifier"):
+        make_source_key(company)
+
+
+@pytest.mark.parametrize("token", ["Example_Studio", "example studio", "ex/ample"])
+def test_the_source_key_helper_refuses_a_token_that_is_not_a_slug(token: str) -> None:
+    """A blank token is absent from this list because Company rejects it first."""
+    with pytest.raises(ValueError, match="board token"):
+        make_source_key(make_company(ats_identifier=token))
+
+
+def test_the_source_key_helper_refuses_a_blank_token_reaching_it_anyway() -> None:
+    company = Company.model_construct(
+        key="example-studio",
+        name="Example Studio",
+        ats=ATSKind.GREENHOUSE,
+        ats_identifier="",
+    )
+
+    with pytest.raises(ValueError, match="board token"):
+        make_source_key(company)
+
+
+def test_the_source_key_helper_validates_what_it_derived() -> None:
+    """Defensive: two valid slugs always compose into a valid one.
+
+    Reaching this needs a Company built past its own validator, but the check
+    is what makes the helper safe to trust rather than safe by coincidence.
+    """
+    company = Company.model_construct(
+        key="Bad Key",
+        name="Example Studio",
+        ats=ATSKind.GREENHOUSE,
+        ats_identifier="examplestudio",
+    )
+
+    with pytest.raises(ValueError, match="source key"):
+        make_source_key(company)
+
+
 def test_a_collector_reports_its_identity() -> None:
     collector = make_collector(FakeFetcher("{}"))
 
