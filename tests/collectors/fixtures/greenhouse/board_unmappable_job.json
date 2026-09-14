@@ -1,0 +1,23 @@
+{
+  "jobs": [
+    {
+      "id": 4968083003,
+      "title": "Gameplay Programmer",
+      "location": { "name": "Kadikoy, Istanbul" },
+      "absolute_url": "https://example.com/examplestudio/jobs/4968083003",
+      "first_published": "2026-02-11T12:55:28-05:00",
+      "content": "&lt;p&gt;Gameplay systems work.&lt;/p&gt;"
+    },
+    {
+      "id": 5095371003,
+      "title": "Junior Technical Artist",
+      "location": { "name": "Remote - Europe" },
+      "absolute_url": "URLMARKERaaaaaaaaaaaaaaaaaaaaNOTAVALIDURL",
+      "first_published": "2026-06-30T08:00:00-04:00",
+      "content": "&lt;p&gt;DESCRIPTIONMARKERbbbbbbbbbbbbbbbbbbbbDONOTLEAK. This stands in for a real job description, which must never be copied into a warning.&lt;/p&gt;"
+    }
+  ],
+  "meta": {
+    "total": 2
+  }
+}

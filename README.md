@@ -8,8 +8,11 @@ candidate profile, and presents the best matches for review. No applications are
 automatically — the human stays in the loop.
 
 > **Status: early development.** Phase 1 (reliable job ingestion) is in progress.
-> Milestone 1.1 (project scaffold) is complete. No collectors, persistence, matching,
-> dashboard, or agent code exists yet.
+> Complete so far: the project scaffold, the validated domain models, a responsible HTTP
+> layer (robots.txt enforcement, per-host rate limiting, bounded retries, redirect
+> validation, typed failures), and the Greenhouse collector.
+> Not built yet: the Lever collector, normalization, persistence, deduplication, the CLI,
+> matching, the dashboard, and the discovery agent.
 
 ## Design principle
 
@@ -109,7 +112,11 @@ public pages — no guessed URLs, no assumed ATS.
 
 | Company | Careers source | ATS | Status |
 | --- | --- | --- | --- |
-| _(none verified yet)_ | — | — | — |
+| Good Job Games | [Greenhouse job board](https://job-boards.greenhouse.io/goodjobgames) | Greenhouse | Verified — readable by the Greenhouse collector |
+
+Greenhouse is the first supported ATS. A board is read through its public Job Board API,
+which needs no authentication, returns a whole board in one response, and whose
+`robots.txt` permits the endpoint we use.
 
 ## Responsible use
 
