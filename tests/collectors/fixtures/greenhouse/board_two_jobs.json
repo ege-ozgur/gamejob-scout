@@ -1,0 +1,101 @@
+{
+  "jobs": [
+    {
+      "id": 4968083003,
+      "internal_job_id": 4539084003,
+      "title": "Gameplay Programmer",
+      "updated_at": "2026-06-11T05:20:10-04:00",
+      "requisition_id": "17",
+      "location": {
+        "name": "Kadıköy, İstanbul"
+      },
+      "absolute_url": "https://example.com/examplestudio/jobs/4968083003",
+      "company_name": "Example Studio",
+      "first_published": "2026-02-11T12:55:28-05:00",
+      "application_deadline": null,
+      "language": "en",
+      "metadata": null,
+      "content": "&lt;p&gt;&lt;strong&gt;About the role&lt;/strong&gt;&lt;/p&gt;&lt;p&gt;You will build gameplay systems in C++ and work on tools &amp;amp; pipelines with the wider team.&lt;/p&gt;",
+      "departments": [
+        {
+          "id": 4018249003,
+          "name": "Engineering",
+          "parent_id": null,
+          "child_ids": []
+        }
+      ],
+      "offices": [
+        {
+          "id": 4007331003,
+          "name": "Example Studio",
+          "location": "Kadıköy, İstanbul, Türkiye",
+          "parent_id": null,
+          "child_ids": []
+        }
+      ],
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": false
+        }
+      ],
+      "include_ai_disclaimer": null,
+      "ai_disclaimer": null,
+      "ai_opt_out_request_url": null
+    },
+    {
+      "id": 5095371003,
+      "internal_job_id": 4712004003,
+      "title": "Junior Technical Artist",
+      "updated_at": "2026-07-02T09:11:45-04:00",
+      "requisition_id": "23",
+      "location": {
+        "name": "Remote - Europe"
+      },
+      "absolute_url": "https://example.com/examplestudio/jobs/5095371003",
+      "company_name": "Example Studio",
+      "first_published": "2026-06-30T08:00:00-04:00",
+      "application_deadline": null,
+      "language": "en",
+      "metadata": null,
+      "content": "&lt;p&gt;Join the art pipeline team. Shaders, tooling &amp;amp; performance work.&lt;/p&gt;",
+      "departments": [
+        {
+          "id": 4018250003,
+          "name": "Art",
+          "parent_id": null,
+          "child_ids": []
+        }
+      ],
+      "offices": [
+        {
+          "id": 4007332003,
+          "name": "Remote",
+          "location": "Europe",
+          "parent_id": null,
+          "child_ids": []
+        }
+      ],
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": false
+        }
+      ],
+      "include_ai_disclaimer": null,
+      "ai_disclaimer": null,
+      "ai_opt_out_request_url": null
+    }
+  ],
+  "meta": {
+    "total": 2
+  }
+}
