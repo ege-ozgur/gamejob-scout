@@ -13,7 +13,7 @@ runner is milestone 1.9; this milestone only makes the isolation possible.
 A concrete collector receives the shared fetcher through its constructor::
 
     class SomeAtsCollector:
-        def __init__(self, fetcher: HttpFetcher, company: Company) -> None:
+        def __init__(self, fetcher: JobBoardFetcher, company: Company) -> None:
             self._fetcher = fetcher
             self._company = company
 
@@ -29,8 +29,26 @@ from typing import Protocol, runtime_checkable
 from gamejob_scout.domain import ATSKind, JobListing, Slug, UtcDatetime
 from gamejob_scout.domain.types import require_content
 from gamejob_scout.errors import GameJobScoutError
+from gamejob_scout.http import FetchedDocument
 
-__all__ = ["CollectionResult", "Collector", "CollectorError"]
+__all__ = ["CollectionResult", "Collector", "CollectorError", "JobBoardFetcher"]
+
+
+class JobBoardFetcher(Protocol):
+    """The one thing a collector needs from the HTTP layer.
+
+    :class:`~gamejob_scout.http.fetcher.HttpFetcher` satisfies this structurally,
+    so this is a widening rather than a new dependency. Collectors are declared
+    against it because reading a board really does need nothing more than a
+    polite GET, and saying so keeps a collector honest about its reach.
+
+    Deliberately not ``runtime_checkable``: nothing does ``isinstance`` on a
+    fetcher, and the decorator would advertise a check that only compares
+    attribute names anyway.
+    """
+
+    def get(self, url: str) -> FetchedDocument:
+        """Fetch a URL, honouring robots.txt, rate limits and bounded retries."""
 
 
 class CollectorError(GameJobScoutError):

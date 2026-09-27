@@ -1,0 +1,18 @@
+[
+  {
+    "id": "79b732cb-96d7-4792-b7bb-be5c48fa2218",
+    "text": "Gameplay Programmer",
+    "createdAt": 1766401978539,
+    "categories": { "location": "Kadikoy, Istanbul" },
+    "description": "",
+    "descriptionPlain": "",
+    "lists": [
+      {
+        "text": "Requirements",
+        "content": "\n<li>Strong C++ and debugging skills</li>"
+      }
+    ],
+    "additional": "",
+    "hostedUrl": "https://example.com/examplestudio/79b732cb-96d7-4792-b7bb-be5c48fa2218"
+  }
+]

@@ -10,9 +10,9 @@ automatically — the human stays in the loop.
 > **Status: early development.** Phase 1 (reliable job ingestion) is in progress.
 > Complete so far: the project scaffold, the validated domain models, a responsible HTTP
 > layer (robots.txt enforcement, per-host rate limiting, bounded retries, redirect
-> validation, typed failures), and the Greenhouse collector.
-> Not built yet: the Lever collector, normalization, persistence, deduplication, the CLI,
-> matching, the dashboard, and the discovery agent.
+> validation, typed failures), and the Greenhouse and Lever collectors.
+> Not built yet: normalization, persistence, deduplication, the CLI, matching, the
+> dashboard, and the discovery agent.
 
 ## Design principle
 
@@ -114,9 +114,13 @@ public pages — no guessed URLs, no assumed ATS.
 | --- | --- | --- | --- | --- |
 | Good Job Games | [Greenhouse job board](https://job-boards.greenhouse.io/goodjobgames) | Greenhouse | Readable by the Greenhouse collector | 2026-09-14 |
 
-Greenhouse is the first supported ATS. A board is read through its public Job Board API,
-which needs no authentication, returns a whole board in one response, and whose
-`robots.txt` permits the endpoint we use.
+Greenhouse and Lever are the supported ATSs. Each is read through its public, unauthenticated
+API, and in both cases the `robots.txt` of the host we actually call permits the endpoint we
+use. Greenhouse returns a whole board in one response; Lever paginates, and its API asks for
+a one-second crawl delay, which we already honour.
+
+A company appears above only once its careers page has been checked against its own public
+site. A verified Lever source is pending that check and is deliberately not listed yet.
 
 ## Responsible use
 

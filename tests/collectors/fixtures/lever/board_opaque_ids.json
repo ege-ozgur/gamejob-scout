@@ -1,0 +1,26 @@
+[
+  {
+    "id": "12345",
+    "text": "Gameplay Programmer",
+    "categories": { "location": "Kadikoy, Istanbul" },
+    "description": "<div>Gameplay systems work.</div>",
+    "lists": [],
+    "hostedUrl": "https://example.com/examplestudio/12345"
+  },
+  {
+    "id": "abc-DEF_123",
+    "text": "Junior Technical Artist",
+    "categories": { "location": "Remote - Europe" },
+    "description": "<div>Art pipeline work.</div>",
+    "lists": [],
+    "hostedUrl": "https://example.com/examplestudio/abc-DEF_123"
+  },
+  {
+    "id": "x",
+    "text": "Producer",
+    "categories": { "location": "Kadikoy, Istanbul" },
+    "description": "<div>Production work.</div>",
+    "lists": [],
+    "hostedUrl": "https://example.com/examplestudio/x"
+  }
+]

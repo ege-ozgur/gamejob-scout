@@ -1,0 +1,64 @@
+[
+  {
+    "id": "79b732cb-96d7-4792-b7bb-be5c48fa2218",
+    "text": "Gameplay Programmer",
+    "createdAt": 1766401978539,
+    "categories": {
+      "commitment": "Full-time",
+      "location": "Kadikoy, Istanbul",
+      "team": "Engineering",
+      "allLocations": ["Kadikoy, Istanbul"]
+    },
+    "country": "TR",
+    "workplaceType": "onsite",
+    "opening": "",
+    "openingPlain": "",
+    "description": "<div>We are looking for a Gameplay Programmer to build systems in C++.</div>",
+    "descriptionPlain": "We are looking for a Gameplay Programmer to build systems in C++.",
+    "descriptionBody": "<div>We are looking for a Gameplay Programmer to build systems in C++.</div>",
+    "descriptionBodyPlain": "We are looking for a Gameplay Programmer to build systems in C++.",
+    "lists": [
+      {
+        "text": "Responsibilities",
+        "content": "\n<li>Build and maintain gameplay systems</li>\n<li>Profile and optimise hot paths</li>"
+      },
+      {
+        "text": "Requirements",
+        "content": "\n<li>Strong C++ and debugging skills</li>\n<li>Interest in tools &amp; pipelines</li>"
+      }
+    ],
+    "additional": "<div>We review every application.</div>",
+    "additionalPlain": "We review every application.",
+    "hostedUrl": "https://example.com/examplestudio/79b732cb-96d7-4792-b7bb-be5c48fa2218",
+    "applyUrl": "https://example.com/examplestudio/79b732cb-96d7-4792-b7bb-be5c48fa2218/apply"
+  },
+  {
+    "id": "c1d2e3f4-a5b6-4788-9900-112233445566",
+    "text": "Junior Technical Artist",
+    "createdAt": 1784531218896,
+    "categories": {
+      "commitment": "Full-time",
+      "location": "Remote - Europe",
+      "team": "Art",
+      "allLocations": ["Remote - Europe"]
+    },
+    "country": null,
+    "workplaceType": "remote",
+    "opening": "",
+    "openingPlain": "",
+    "description": "<div>Join the art pipeline team.</div>",
+    "descriptionPlain": "Join the art pipeline team.",
+    "descriptionBody": "<div>Join the art pipeline team.</div>",
+    "descriptionBodyPlain": "Join the art pipeline team.",
+    "lists": [
+      {
+        "text": "Requirements",
+        "content": "\n<li>Shader and tooling experience</li>"
+      }
+    ],
+    "additional": "",
+    "additionalPlain": "",
+    "hostedUrl": "https://example.com/examplestudio/c1d2e3f4-a5b6-4788-9900-112233445566",
+    "applyUrl": "https://example.com/examplestudio/c1d2e3f4-a5b6-4788-9900-112233445566/apply"
+  }
+]

@@ -11,7 +11,7 @@ import html
 import json
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Final, cast
+from typing import TYPE_CHECKING, Any, Final
 
 import pytest
 import respx
@@ -21,11 +21,11 @@ from gamejob_scout.collectors import (
     Collector,
     CollectorError,
     GreenhouseCollector,
-    board_jobs_url,
-    make_source_key,
+    greenhouse_board_jobs_url,
+    greenhouse_source_key,
 )
 from gamejob_scout.domain import ATSKind, Company
-from gamejob_scout.http import FetchedDocument, HttpFetcher, HttpStatusError, RobotsDisallowedError
+from gamejob_scout.http import FetchedDocument, HttpStatusError, RobotsDisallowedError
 from tests.factories import DISCOVERED_AT, make_company
 from tests.http.conftest import ALLOW_ALL, DISALLOW_ALL, FakeClock, make_fetcher
 
@@ -58,12 +58,7 @@ def load_fixture(fixture_name: str) -> str:
 
 
 def make_collector(fetcher: FakeFetcher, **company_overrides: Any) -> GreenhouseCollector:
-    # The collector wants the real fetcher type; the fake satisfies the only
-    # method it actually calls.
-    return GreenhouseCollector(
-        cast(HttpFetcher, fetcher),
-        make_company(**company_overrides),
-    )
+    return GreenhouseCollector(fetcher, make_company(**company_overrides))
 
 
 def collect_body(body: str, **company_overrides: Any) -> CollectionResult:
@@ -105,13 +100,13 @@ if TYPE_CHECKING:
 
 
 def test_the_board_url_asks_for_content() -> None:
-    assert board_jobs_url("examplestudio") == BOARD_URL
+    assert greenhouse_board_jobs_url("examplestudio") == BOARD_URL
 
 
 def test_the_source_key_includes_the_board() -> None:
     """Two boards for one company on one ATS must not collide."""
-    assert make_source_key(make_company()) == SOURCE_KEY
-    assert make_source_key(make_company(ats_identifier="secondboard")) == (
+    assert greenhouse_source_key(make_company()) == SOURCE_KEY
+    assert greenhouse_source_key(make_company(ats_identifier="secondboard")) == (
         "example-studio-greenhouse-secondboard"
     )
 
@@ -140,12 +135,12 @@ def test_the_board_url_refuses_a_token_that_is_not_a_slug(token: str) -> None:
     from being interpolated into somebody else's URL.
     """
     with pytest.raises(ValueError, match="board token"):
-        board_jobs_url(token)
+        greenhouse_board_jobs_url(token)
 
 
 def test_the_source_key_helper_refuses_another_ats() -> None:
     with pytest.raises(ValueError, match="not 'greenhouse'"):
-        make_source_key(make_company(ats=ATSKind.LEVER, ats_identifier="examplestudio"))
+        greenhouse_source_key(make_company(ats=ATSKind.LEVER, ats_identifier="examplestudio"))
 
 
 def test_the_source_key_helper_refuses_a_missing_board_token() -> None:
@@ -158,14 +153,14 @@ def test_the_source_key_helper_refuses_a_missing_board_token() -> None:
     )
 
     with pytest.raises(ValueError, match="no ats_identifier"):
-        make_source_key(company)
+        greenhouse_source_key(company)
 
 
 @pytest.mark.parametrize("token", ["Example_Studio", "example studio", "ex/ample"])
 def test_the_source_key_helper_refuses_a_token_that_is_not_a_slug(token: str) -> None:
     """A blank token is absent from this list because Company rejects it first."""
     with pytest.raises(ValueError, match="board token"):
-        make_source_key(make_company(ats_identifier=token))
+        greenhouse_source_key(make_company(ats_identifier=token))
 
 
 def test_the_source_key_helper_refuses_a_blank_token_reaching_it_anyway() -> None:
@@ -177,7 +172,7 @@ def test_the_source_key_helper_refuses_a_blank_token_reaching_it_anyway() -> Non
     )
 
     with pytest.raises(ValueError, match="board token"):
-        make_source_key(company)
+        greenhouse_source_key(company)
 
 
 def test_the_source_key_helper_validates_what_it_derived() -> None:
@@ -194,7 +189,7 @@ def test_the_source_key_helper_validates_what_it_derived() -> None:
     )
 
     with pytest.raises(ValueError, match="source key"):
-        make_source_key(company)
+        greenhouse_source_key(company)
 
 
 def test_a_collector_reports_its_identity() -> None:
@@ -207,7 +202,7 @@ def test_a_collector_reports_its_identity() -> None:
 
 def test_an_explicit_source_key_is_honoured() -> None:
     collector = GreenhouseCollector(
-        cast(HttpFetcher, FakeFetcher("{}")),
+        FakeFetcher("{}"),
         make_company(),
         source_key="example-studio-emea-board",
     )
@@ -230,7 +225,7 @@ def test_a_company_without_a_board_token_is_refused() -> None:
     )
 
     with pytest.raises(ValueError, match="no ats_identifier"):
-        GreenhouseCollector(cast(HttpFetcher, FakeFetcher("{}")), company)
+        GreenhouseCollector(FakeFetcher("{}"), company)
 
 
 @pytest.mark.parametrize("token", ["Example_Studio", "example studio", "EXAMPLE", "ex--ample"])
@@ -242,7 +237,7 @@ def test_a_board_token_that_is_not_slug_safe_is_refused(token: str) -> None:
 def test_an_explicit_source_key_must_still_be_a_slug() -> None:
     with pytest.raises(ValueError, match="source key"):
         GreenhouseCollector(
-            cast(HttpFetcher, FakeFetcher("{}")),
+            FakeFetcher("{}"),
             make_company(),
             source_key="Not A Slug",
         )

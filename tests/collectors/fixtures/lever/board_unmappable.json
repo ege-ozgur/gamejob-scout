@@ -1,0 +1,18 @@
+[
+  {
+    "id": "79b732cb-96d7-4792-b7bb-be5c48fa2218",
+    "text": "Gameplay Programmer",
+    "categories": { "location": "Kadikoy, Istanbul" },
+    "description": "<div>Gameplay systems work.</div>",
+    "lists": [],
+    "hostedUrl": "https://example.com/examplestudio/79b732cb-96d7-4792-b7bb-be5c48fa2218"
+  },
+  {
+    "id": "c1d2e3f4-a5b6-4788-9900-112233445566",
+    "text": "Junior Technical Artist",
+    "categories": { "location": "Remote - Europe" },
+    "description": "<div>DESCRIPTIONMARKERbbbbbbbbbbbbbbbbbbbbDONOTLEAK. This stands in for a real job description, which must never be copied into a warning.</div>",
+    "lists": [],
+    "hostedUrl": "URLMARKERaaaaaaaaaaaaaaaaaaaaNOTAVALIDURL"
+  }
+]
