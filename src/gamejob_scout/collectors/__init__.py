@@ -25,6 +25,7 @@ from gamejob_scout.collectors.lever import (
     LEVER_MAX_PAGES,
     LEVER_PAGE_SIZE,
     LeverCollector,
+    MalformedPosting,
     compose_description,
 )
 from gamejob_scout.collectors.lever import board_url as lever_board_url
@@ -43,6 +44,7 @@ __all__ = [
     "GreenhouseCollector",
     "JobBoardFetcher",
     "LeverCollector",
+    "MalformedPosting",
     "compose_description",
     "greenhouse_board_jobs_url",
     "greenhouse_source_key",

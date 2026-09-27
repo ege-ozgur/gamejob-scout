@@ -36,6 +36,7 @@ import json
 import re
 from datetime import datetime
 from typing import Any, Final
+from urllib.parse import urlsplit
 
 from pydantic import TypeAdapter, ValidationError
 
@@ -48,6 +49,7 @@ __all__ = [
     "LEVER_MAX_PAGES",
     "LEVER_PAGE_SIZE",
     "LeverCollector",
+    "MalformedPosting",
     "board_url",
     "compose_description",
     "make_source_key",
@@ -159,6 +161,15 @@ def make_source_key(company: Company) -> str:
     return _checked_slug(f"{company.key}-lever-{site}", f"source key for {company.key!r}")
 
 
+class MalformedPosting(ValueError):
+    """A posting's description fields are the wrong shape to compose.
+
+    Its message names the offending field, and its index where there is one, but
+    never quotes any payload text — these messages end up in warnings, and from
+    there in run reports and logs.
+    """
+
+
 class _SkipPosting(Exception):
     """One posting cannot be mapped.
 
@@ -221,6 +232,14 @@ def _required_text(value: object, field: str, label: str) -> str:
     return value
 
 
+def _scheme_of(url: str) -> str:
+    """The URL's lowercased scheme, or ``""`` if it cannot be parsed at all."""
+    try:
+        return urlsplit(url).scheme.lower()
+    except ValueError:
+        return ""
+
+
 def _location(categories: object) -> str | None:
     """Pull the location out of ``categories``, leaving its wording alone.
 
@@ -231,6 +250,26 @@ def _location(categories: object) -> str | None:
         return None
     location = categories.get("location")
     return location if isinstance(location, str) else None
+
+
+def _composed_list(entry: dict[str, Any], position: int) -> str:
+    """One list rendered as a section, or ``""`` if the list is legitimately empty.
+
+    Absent or empty ``content`` is a section with nothing in it, which happens
+    and is fine. ``content`` of the wrong *type* is malformed data, which is not.
+    """
+    content = entry.get("content")
+    if content is None or (isinstance(content, str) and not content.strip()):
+        return ""
+    if not isinstance(content, str):
+        raise MalformedPosting(f"'lists[{position}].content' is not a string")
+
+    name = entry.get("text")
+    if name is not None and not isinstance(name, str):
+        raise MalformedPosting(f"'lists[{position}].text' is not a string")
+
+    heading = f"<h3>{html.escape(name)}</h3>" if name and name.strip() else ""
+    return f"<section>{heading}<ul>{content}</ul></section>"
 
 
 def compose_description(posting: dict[str, Any]) -> str:
@@ -246,29 +285,34 @@ def compose_description(posting: dict[str, Any]) -> str:
       that would otherwise be invalid HTML.
     * ``lists[].text`` is plain text and so is HTML-escaped. An unescaped ``&``
       or ``<`` in a list name would otherwise produce broken markup.
+
+    Anything supplied with the wrong type raises :class:`MalformedPosting` rather
+    than being skipped. Quietly ignoring a malformed ``lists`` would map the job
+    with a perfectly good ``description`` and no requirements, and say nothing —
+    the worst of both outcomes. A field that is simply absent, null, or empty is
+    not malformed and contributes nothing.
     """
     parts: list[str] = []
 
     description = posting.get("description")
-    if isinstance(description, str):
+    if description is not None:
+        if not isinstance(description, str):
+            raise MalformedPosting("'description' is not a string")
         parts.append(description)
 
     entries = posting.get("lists")
-    if isinstance(entries, list):
-        for entry in entries:
+    if entries is not None:
+        if not isinstance(entries, list):
+            raise MalformedPosting("'lists' is not an array")
+        for position, entry in enumerate(entries):
             if not isinstance(entry, dict):
-                continue
-            content = entry.get("content")
-            if not isinstance(content, str) or not content.strip():
-                continue
-            name = entry.get("text")
-            heading = ""
-            if isinstance(name, str) and name.strip():
-                heading = f"<h3>{html.escape(name)}</h3>"
-            parts.append(f"<section>{heading}<ul>{content}</ul></section>")
+                raise MalformedPosting(f"'lists[{position}]' is not an object")
+            parts.append(_composed_list(entry, position))
 
     additional = posting.get("additional")
-    if isinstance(additional, str):
+    if additional is not None:
+        if not isinstance(additional, str):
+            raise MalformedPosting("'additional' is not a string")
         parts.append(additional)
 
     return "".join(parts)
@@ -352,8 +396,14 @@ class LeverCollector:
             if not page:
                 break
 
+            # "Demonstrably repeated" means every entry on this page resolved to
+            # an ID we have already collected. A page carrying anything else — a
+            # new posting, or even an unusable one — may well be followed by more
+            # pages, so it is no evidence that the board is looping. Requiring
+            # only `page_ids <= seen` would stop on a page that merely *overlaps*
+            # what we have, silently truncating the rest of the board.
             page_ids = {found_id for entry in page if (found_id := self._entry_id(entry))}
-            if page_ids and page_ids <= seen:
+            if len(page_ids) == len(page) and page_ids <= seen:
                 warnings.append("board repeated a page of postings; stopping pagination")
                 break
 
@@ -423,8 +473,17 @@ class LeverCollector:
             raise _SkipPosting(f"{label}: duplicate id, keeping the first occurrence")
 
         title = _required_text(entry.get("text"), "text", label)
+
         application_url = _required_text(entry.get("hostedUrl"), "hostedUrl", label)
-        description_raw = compose_description(entry)
+        if _scheme_of(application_url) != "https":
+            # HttpUrl would accept http://, and this is the link a human will be
+            # sent to apply through. Downgrading that is not acceptable.
+            raise _SkipPosting(f"{label}: 'hostedUrl' is not an https URL")
+
+        try:
+            description_raw = compose_description(entry)
+        except MalformedPosting as exc:
+            raise _SkipPosting(f"{label}: {exc}") from exc
         if not description_raw.strip():
             raise _SkipPosting(f"{label}: no description content in any field")
 

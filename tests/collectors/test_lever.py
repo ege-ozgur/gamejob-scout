@@ -6,6 +6,7 @@ end-to-end tests at the bottom go through the real `HttpFetcher` with respx.
 """
 
 import json
+import re
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Final
@@ -21,6 +22,7 @@ from gamejob_scout.collectors import (
     Collector,
     CollectorError,
     LeverCollector,
+    MalformedPosting,
     compose_description,
     lever_board_url,
     lever_postings_url,
@@ -414,10 +416,78 @@ def test_a_list_without_a_name_keeps_its_items() -> None:
     assert "<section><ul><li>Ship features</li></ul></section>" in body
 
 
-def test_a_malformed_list_entry_is_ignored() -> None:
-    posting = a_posting(lists=["not an object", {"text": "Perks", "content": "<li>A</li>"}])
+@pytest.mark.parametrize(
+    ("field", "value", "expected"),
+    [
+        ("lists", "not an array", "'lists' is not an array"),
+        ("lists", {"text": "Perks"}, "'lists' is not an array"),
+        ("lists", ["not an object"], "'lists[0]' is not an object"),
+        ("lists", [{"text": "Perks", "content": 42}], "'lists[0].content' is not a string"),
+        ("lists", [{"text": 42, "content": "<li>A</li>"}], "'lists[0].text' is not a string"),
+        ("description", 42, "'description' is not a string"),
+        ("additional", ["x"], "'additional' is not a string"),
+    ],
+)
+def test_malformed_description_data_is_rejected(field: str, value: Any, expected: str) -> None:
+    """Silently skipping this would map the job without its requirements."""
+    with pytest.raises(MalformedPosting, match=re.escape(expected)):
+        compose_description(a_posting(**{field: value}))
 
-    assert compose_description(posting).count("<section>") == 1
+
+def test_a_malformed_entry_is_reported_by_position() -> None:
+    posting = a_posting(lists=[{"text": "Perks", "content": "<li>A</li>"}, "not an object"])
+
+    with pytest.raises(MalformedPosting, match=re.escape("'lists[1]' is not an object")):
+        compose_description(posting)
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("lists", None),
+        ("lists", []),
+        ("description", None),
+        ("description", ""),
+        ("additional", None),
+        ("additional", ""),
+    ],
+)
+def test_legitimately_absent_optional_content_is_fine(field: str, value: Any) -> None:
+    """Absent, null, or empty is normal. Only the wrong *type* is malformed."""
+    posting = a_posting(**{field: value})
+    posting.setdefault("description", "<div>Art pipeline work.</div>")
+    if field == "description" and not value:
+        posting["lists"] = [{"text": "Requirements", "content": "<li>C++</li>"}]
+
+    assert compose_description(posting).strip()
+
+
+def test_a_malformed_list_skips_only_that_posting() -> None:
+    """A collector-level check: the sibling posting must still map."""
+    result = collect_payload(
+        [a_posting(lists="not an array"), a_posting(id=FIRST_ID)],
+    )
+
+    assert result.found == 2
+    assert len(result.listings) == 1
+    assert result.listings[0].external_id == FIRST_ID
+    assert result.warnings == (f"posting at index 0 (id {SECOND_ID}): 'lists' is not an array",)
+
+
+def test_a_malformed_list_warning_never_quotes_the_payload() -> None:
+    marker = "LISTMARKER" + "z" * 120
+    result = collect_payload(
+        [
+            a_posting(lists=[{"text": marker, "content": 42}]),
+            a_posting(id=FIRST_ID),
+        ],
+    )
+
+    assert len(result.listings) == 1
+    assert marker not in " ".join(result.warnings)
+    assert result.warnings == (
+        f"posting at index 0 (id {SECOND_ID}): 'lists[0].content' is not a string",
+    )
 
 
 def test_composition_is_byte_stable() -> None:
@@ -585,6 +655,68 @@ def test_a_posting_the_model_rejects_is_skipped() -> None:
     assert "application_url" in result.warnings[0]
 
 
+# -- the application link must be https ------------------------------------
+
+
+def test_an_https_hosted_url_is_accepted() -> None:
+    result = collect_payload([a_posting(hostedUrl="https://example.com/examplestudio/a")])
+
+    assert str(result.listings[0].application_url) == "https://example.com/examplestudio/a"
+    assert result.warnings == ()
+
+
+def test_an_uppercase_https_scheme_is_accepted() -> None:
+    """The scheme is compared case-insensitively, as URL schemes are."""
+    result = collect_payload([a_posting(hostedUrl="HTTPS://example.com/examplestudio/a")])
+
+    assert len(result.listings) == 1
+
+
+@pytest.mark.parametrize(
+    "hosted_url",
+    [
+        "http://example.com/examplestudio/a",
+        "HTTP://example.com/examplestudio/a",
+        "ftp://example.com/a",
+        "//example.com/a",
+        "example.com/a",
+    ],
+    ids=["http", "http_upper", "ftp", "scheme_relative", "no_scheme"],
+)
+def test_a_hosted_url_that_is_not_https_is_refused(hosted_url: str) -> None:
+    """HttpUrl would accept http://, and this is where a person goes to apply."""
+    result = collect_payload([a_posting(hostedUrl=hosted_url), a_posting(id=FIRST_ID)])
+
+    assert result.found == 2
+    assert len(result.listings) == 1, "the sibling posting still maps"
+    assert result.listings[0].external_id == FIRST_ID
+    assert result.warnings == (
+        f"posting at index 0 (id {SECOND_ID}): 'hostedUrl' is not an https URL",
+    )
+
+
+def test_an_insecure_hosted_url_is_never_quoted_in_the_warning() -> None:
+    marker = "URLMARKER" + "q" * 120
+    result = collect_payload([a_posting(hostedUrl=f"http://example.com/{marker}")])
+
+    assert marker not in " ".join(result.warnings)
+
+
+def test_applyurl_is_never_used_as_a_fallback() -> None:
+    """An http hostedUrl is a rejection, not a reason to reach for applyUrl."""
+    result = collect_payload(
+        [
+            a_posting(
+                hostedUrl="http://example.com/examplestudio/a",
+                applyUrl="https://example.com/examplestudio/a/apply",
+            ),
+        ],
+    )
+
+    assert result.listings == ()
+    assert len(result.warnings) == 1
+
+
 # -- warnings never quote the payload -------------------------------------
 
 
@@ -702,6 +834,44 @@ def test_a_page_of_unusable_ids_does_not_stop_pagination() -> None:
     assert len(result.listings) == 2, "the later page's postings were still collected"
     assert len(result.warnings) == 2, "each bad posting was reported individually"
     assert all("unusable 'id'" in warning for warning in result.warnings)
+
+
+def test_an_overlapping_page_does_not_stop_pagination() -> None:
+    """The regression test for finding 2.
+
+    Page 2 repeats A but also carries an unusable ID, so it is not a repeat of
+    page 1 and page 3 must still be fetched. Requiring only `page_ids <= seen`
+    stopped here and silently lost C.
+    """
+    fetcher = FakeFetcher(
+        json.dumps([a_posting(id="A")]),
+        json.dumps([a_posting(id="A"), a_posting(id="a:b")]),
+        json.dumps([a_posting(id="C")]),
+        "[]",
+    )
+
+    result = make_collector(fetcher).collect(discovered_at=DISCOVERED_AT)
+
+    assert len(fetcher.requested) == 4, "page 3 and the confirming empty page were fetched"
+    assert fetcher.requested == [page_url(0), page_url(1), page_url(3), page_url(4)]
+    assert result.found == 4, "one plus two plus one entries were returned"
+    assert [listing.external_id for listing in result.listings] == ["A", "C"]
+    assert result.warnings == (
+        "posting at index 1 (id A): duplicate id, keeping the first occurrence",
+        "posting at index 2: unusable 'id' (contains whitespace, a colon, or a control character)",
+    )
+
+
+def test_a_page_repeated_in_full_still_stops_pagination() -> None:
+    """The guard has to keep working: every entry resolved to a known ID."""
+    same = json.dumps([a_posting(id="A"), a_posting(id="B")])
+    fetcher = FakeFetcher(same, same, same)
+
+    result = make_collector(fetcher).collect(discovered_at=DISCOVERED_AT)
+
+    assert len(fetcher.requested) == 2
+    assert result.warnings == ("board repeated a page of postings; stopping pagination",)
+    assert len(result.listings) == 2
 
 
 def test_indexes_keep_counting_across_pages() -> None:
