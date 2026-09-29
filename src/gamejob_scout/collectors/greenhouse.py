@@ -31,9 +31,8 @@ from typing import Any, Final
 
 from pydantic import TypeAdapter, ValidationError
 
-from gamejob_scout.collectors.base import CollectionResult, CollectorError
+from gamejob_scout.collectors.base import CollectionResult, CollectorError, JobBoardFetcher
 from gamejob_scout.domain import ATSKind, Company, JobListing, Slug
-from gamejob_scout.http import HttpFetcher
 
 __all__ = [
     "GREENHOUSE_API_BASE",
@@ -207,7 +206,7 @@ class GreenhouseCollector:
 
     def __init__(
         self,
-        fetcher: HttpFetcher,
+        fetcher: JobBoardFetcher,
         company: Company,
         *,
         source_key: str | None = None,
