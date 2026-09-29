@@ -26,9 +26,11 @@ composed with the fixed template in :func:`compose_description`. That is a
 construction, not a transcription, which is worth knowing given that
 ``description_raw`` is documented as source truth elsewhere.
 
-Nothing here interprets a posting. ``workplaceType``, ``categories.commitment``
-and the rest are left alone: turning them into domain values is the normalizer's
-job in milestone 1.6.
+Nothing here interprets a posting. ``workplaceType`` is *stored* verbatim as
+``workplace_type_raw`` because the company published it and it is worth more than
+a guess from the title, but it is not translated here; ``categories.commitment``
+and the rest are left alone entirely. Turning any of it into domain values is the
+normalizer's job in milestone 1.6.
 """
 
 import html
@@ -238,6 +240,19 @@ def _scheme_of(url: str) -> str:
         return urlsplit(url).scheme.lower()
     except ValueError:
         return ""
+
+
+def _workplace_type_raw(value: object) -> str | None:
+    """Lever's own statement about where the work happens, kept verbatim.
+
+    Stored rather than interpreted: turning ``"onsite"`` into a
+    :class:`WorkplaceType` is the normalizer's job in milestone 1.6. Anything
+    that is not a non-blank string is simply absent — an unusable value is not
+    worth losing a posting over, and the normalizer treats it as unknown.
+    """
+    if not isinstance(value, str) or not value.strip():
+        return None
+    return value
 
 
 def _location(categories: object) -> str | None:
@@ -500,6 +515,7 @@ class LeverCollector:
                 description_raw=description_raw,
                 application_url=application_url,
                 location_raw=_location(entry.get("categories")),
+                workplace_type_raw=_workplace_type_raw(entry.get("workplaceType")),
                 # Lever publishes no publication timestamp. `createdAt` is the
                 # posting's creation time, and substituting it would record a
                 # date the company never published.

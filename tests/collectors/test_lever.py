@@ -104,6 +104,7 @@ def a_posting(**overrides: Any) -> dict[str, Any]:
         "lists": [],
         "additional": "",
         "hostedUrl": f"https://example.com/{SITE}/{SECOND_ID}",
+        "workplaceType": "onsite",
     }
     posting.update(overrides)
     return posting
@@ -325,6 +326,41 @@ def test_an_empty_board_is_not_a_failure() -> None:
     assert result.found == 0
     assert result.listings == ()
     assert result.warnings == ()
+
+
+# -- the source's own workplace statement ---------------------------------
+
+
+def test_the_boards_workplace_type_is_carried_verbatim() -> None:
+    """Stored, not interpreted. Turning it into an enum is the normalizer's job."""
+    listings = collect_fixture("board_two_postings").listings
+
+    assert listings[0].workplace_type_raw == "onsite"
+    assert listings[1].workplace_type_raw == "remote"
+
+
+@pytest.mark.parametrize("value", ["hybrid", "unspecified", "flexible", "ONSITE"])
+def test_any_non_blank_workplace_type_is_kept_as_written(value: str) -> None:
+    result = collect_payload([a_posting(workplaceType=value)])
+
+    assert result.listings[0].workplace_type_raw == value
+
+
+@pytest.mark.parametrize("value", [None, "", "   ", 42, ["remote"], {"a": 1}])
+def test_an_unusable_workplace_type_is_simply_absent(value: object) -> None:
+    """Not worth losing a posting over; the normalizer treats absence as unknown."""
+    result = collect_payload([a_posting(workplaceType=value)])
+
+    assert len(result.listings) == 1
+    assert result.listings[0].workplace_type_raw is None
+    assert result.warnings == ()
+
+
+def test_a_missing_workplace_type_key_is_absent() -> None:
+    posting = a_posting()
+    del posting["workplaceType"]
+
+    assert collect_payload([posting]).listings[0].workplace_type_raw is None
 
 
 # -- no publication timestamp ---------------------------------------------

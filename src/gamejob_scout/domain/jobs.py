@@ -16,9 +16,9 @@ import json
 from datetime import datetime
 from typing import Final, Self
 
-from pydantic import BaseModel, ConfigDict, HttpUrl, model_validator
+from pydantic import BaseModel, ConfigDict, Field, HttpUrl, model_validator
 
-from gamejob_scout.domain.enums import ATSKind
+from gamejob_scout.domain.enums import ATSKind, ExperienceLevel, WorkplaceType
 from gamejob_scout.domain.types import NonEmptyStr, Sha256Hex, Slug, UtcDatetime, VerbatimStr
 
 HASHED_FIELDS: Final[tuple[str, ...]] = (
@@ -27,6 +27,7 @@ HASHED_FIELDS: Final[tuple[str, ...]] = (
     "description_raw",
     "published_at",
     "application_url",
+    "workplace_type_raw",
 )
 """Fields that take part in change detection: source truth, and nothing else.
 
@@ -38,8 +39,12 @@ Excluded on purpose:
   would mark every job as changed on every run.
 * ``company_name`` — may come from our own monitored-company configuration
   rather than from the job source.
-* every field the normalizer produces (added in milestone 1.6) — otherwise
-  improving the normalizer would flag every stored job as edited.
+* ``description_text``, ``location``, ``workplace_type``, ``experience_level``
+  and the ``years_required_*`` pair — everything the normalizer derives.
+  Improving the normalizer would otherwise flag every stored job as edited.
+
+``workplace_type_raw`` *is* hashed, because it is not ours: Lever publishes it,
+and a company moving a role from on-site to remote is a real edit.
 
 A changed hash therefore means exactly one thing: the company edited the posting.
 """
@@ -75,6 +80,31 @@ class JobContent(BaseModel):
     application_url: HttpUrl
     location_raw: str | None = None
     published_at: UtcDatetime | None = None
+    workplace_type_raw: str | None = None
+    """What the source itself said about where the work happens.
+
+    Lever publishes this; Greenhouse does not, so it stays ``None`` there. Kept
+    verbatim and uninterpreted — turning it into a :class:`WorkplaceType` is the
+    normalizer's job.
+    """
+
+    # Derived by the normalizer in milestone 1.6. Every one of these is absent
+    # from HASHED_FIELDS, so improving the rules never looks like a job edit.
+    description_text: str | None = None
+    location: str | None = None
+    workplace_type: WorkplaceType = WorkplaceType.UNKNOWN
+    experience_level: ExperienceLevel = ExperienceLevel.UNKNOWN
+    years_required_min: float | None = Field(default=None, ge=0, le=60)
+    years_required_max: float | None = Field(default=None, ge=0, le=60)
+
+    @model_validator(mode="after")
+    def _check_year_bounds(self) -> Self:
+        low, high = self.years_required_min, self.years_required_max
+        if low is not None and high is not None and low > high:
+            raise ValueError(
+                f"years_required_min ({low}) cannot exceed years_required_max ({high})",
+            )
+        return self
 
 
 def make_job_id(source_key: str, external_id: str) -> str:
@@ -143,6 +173,7 @@ class JobListing(JobContent):
         application_url: str | HttpUrl,
         location_raw: str | None = None,
         published_at: datetime | None = None,
+        workplace_type_raw: str | None = None,
     ) -> "JobListing":
         """Create a listing, computing its ID and content hash.
 
@@ -150,6 +181,11 @@ class JobListing(JobContent):
         input so the hash is computed from settled values; the second pass runs
         the finished listing back through the exact JSON path the database will
         use, so every construction proves the round trip works.
+
+        Only source truth is accepted. Derived fields are deliberately absent
+        from this signature, so a collector cannot invent an interpretation;
+        those arrive later through
+        :func:`~gamejob_scout.normalization.normalize_listing`.
         """
         content = JobContent(
             source=source,
@@ -164,6 +200,7 @@ class JobListing(JobContent):
             application_url=application_url,
             location_raw=location_raw,
             published_at=published_at,
+            workplace_type_raw=workplace_type_raw,
         )
         return cls.model_validate(
             {
