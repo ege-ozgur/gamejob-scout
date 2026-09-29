@@ -65,6 +65,13 @@ select = [
     "RUF",  # ruff-specific rules
 ]
 
+# Turkey is this project's primary market, so Turkish text is expected in
+# strings and docstrings. U+0131 LATIN SMALL LETTER DOTLESS I is the only
+# Turkish letter Ruff treats as confusable, and it is a distinct letter rather
+# than a decorated `i` -- the normalizer exists precisely to handle it. Every
+# other confusable, including U+2013 EN DASH, still gets reported.
+allowed-confusables = ["ı"]
+
 [tool.mypy]
 python_version = "3.12"
 strict = true

@@ -16,7 +16,7 @@ from gamejob_scout.domain import HASHED_FIELDS, JobListing, make_job_id
 from tests.factories import PUBLISHED_AT, make_job_listing
 
 DERIVED_FIELDS_ADDED_IN_1_6 = [
-    "description",
+    "description_text",
     "location",
     "workplace_type",
     "experience_level",
@@ -86,6 +86,7 @@ def test_hashed_fields_are_pinned() -> None:
         "description_raw",
         "published_at",
         "application_url",
+        "workplace_type_raw",
     )
 
 
@@ -154,10 +155,65 @@ def test_a_blank_raw_description_is_still_rejected(blank: str) -> None:
         make_job_listing(description_raw=blank)
 
 
+_OTHER: dict[str, object] = {
+    "description_text": "Something else entirely.",
+    "location": "Somewhere else",
+    "workplace_type": "remote",
+    "experience_level": "senior",
+    "years_required_min": 4.0,
+    "years_required_max": 9.0,
+}
+
+
 @pytest.mark.parametrize("name", DERIVED_FIELDS_ADDED_IN_1_6)
-def test_derived_fields_do_not_exist_yet(name: str) -> None:
-    """They arrive in milestone 1.6, together with the normalizer that fills them."""
-    assert name not in JobListing.model_fields
+def test_derived_fields_exist_and_are_not_hashed(name: str) -> None:
+    """Arrived in milestone 1.6 with the normalizer that fills them.
+
+    Staying out of HASHED_FIELDS is what lets the rules improve later without
+    every stored job suddenly looking edited.
+    """
+    assert name in JobListing.model_fields
+    assert name not in HASHED_FIELDS
+
+
+@pytest.mark.parametrize("name", DERIVED_FIELDS_ADDED_IN_1_6)
+def test_changing_a_derived_field_leaves_the_hash_alone(name: str) -> None:
+    listing = make_job_listing()
+    changed = JobListing.model_validate({**listing.model_dump(mode="json"), name: _OTHER[name]})
+
+    assert changed.content_hash == listing.content_hash
+    assert changed.id == listing.id
+
+
+def test_the_source_workplace_type_does_change_the_hash() -> None:
+    """It is Lever's statement, not our inference, so an edit to it is a real edit."""
+    listing = make_job_listing()
+    changed = make_job_listing(workplace_type_raw="remote")
+
+    assert changed.content_hash != listing.content_hash
+
+
+def test_years_required_min_cannot_exceed_max() -> None:
+    with pytest.raises(ValidationError, match="cannot exceed"):
+        make_job_listing(years_required_min=5, years_required_max=3)
+
+
+def test_equal_year_bounds_are_fine() -> None:
+    assert make_job_listing(years_required_min=3, years_required_max=3).years_required_max == 3
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("years_required_min", -1),
+        ("years_required_min", 61),
+        ("years_required_max", -1),
+        ("years_required_max", 61),
+    ],
+)
+def test_year_bounds_are_enforced(field: str, value: int) -> None:
+    with pytest.raises(ValidationError, match=field):
+        make_job_listing(**{field: value})
 
 
 def test_a_scheduled_future_posting_is_accepted() -> None:

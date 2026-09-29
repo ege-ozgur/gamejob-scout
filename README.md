@@ -10,9 +10,10 @@ automatically — the human stays in the loop.
 > **Status: early development.** Phase 1 (reliable job ingestion) is in progress.
 > Complete so far: the project scaffold, the validated domain models, a responsible HTTP
 > layer (robots.txt enforcement, per-host rate limiting, bounded retries, redirect
-> validation, typed failures), and the Greenhouse and Lever collectors.
-> Not built yet: normalization, persistence, deduplication, the CLI, matching, the
-> dashboard, and the discovery agent.
+> validation, typed failures), the Greenhouse and Lever collectors, and deterministic
+> normalization of what they collect.
+> Not built yet: persistence, deduplication, the CLI, matching, the dashboard, and the
+> discovery agent.
 
 ## Design principle
 

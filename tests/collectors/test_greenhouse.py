@@ -319,7 +319,7 @@ def test_the_location_is_kept_exactly_as_published() -> None:
     """
     listing = collect_fixture("board_two_jobs").listings[0]
 
-    assert listing.location_raw == "Kadıköy, İstanbul"  # noqa: RUF001
+    assert listing.location_raw == "Kadıköy, İstanbul"
 
 
 def test_the_company_name_comes_from_our_configuration() -> None:

@@ -32,6 +32,16 @@ RUN_FINISHED_AT = datetime(2026, 9, 11, 8, 5, 0, tzinfo=UTC)
 DISCOVERED_AT = datetime(2026, 9, 11, 8, 1, 0, tzinfo=UTC)
 PUBLISHED_AT = datetime(2026, 9, 1, 12, 30, 0, tzinfo=UTC)
 
+DERIVED_FIELDS = (
+    "description_text",
+    "location",
+    "workplace_type",
+    "experience_level",
+    "years_required_min",
+    "years_required_max",
+)
+"""Fields the normalizer produces, which `JobListing.create` does not accept."""
+
 
 def make_candidate_profile(**overrides: Any) -> CandidateProfile:
     defaults: dict[str, Any] = {
@@ -78,7 +88,15 @@ def make_job_listing(**overrides: Any) -> JobListing:
         "location_raw": "Istanbul, Turkey",
         "published_at": PUBLISHED_AT,
     }
-    return JobListing.create(**{**defaults, **overrides})
+    settings = {**defaults, **overrides}
+
+    # `create` deliberately accepts source truth only, so derived overrides are
+    # applied afterwards the same way the normalizer applies them.
+    derived = {name: settings.pop(name) for name in DERIVED_FIELDS if name in settings}
+    listing = JobListing.create(**settings)
+    if not derived:
+        return listing
+    return JobListing.model_validate({**listing.model_dump(mode="json"), **derived})
 
 
 def make_source_result(**overrides: Any) -> SourceResult:
